@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🎰 Колесо Фортуны</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            overflow: hidden;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        .subtitle {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .wheel-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto 30px;
+        }
+        
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3), inset 0 0 50px rgba(0,0,0,0.3);
+        }
+        
+        .wheel-segment {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            top: 0;
+            right: 0;
+            transform-origin: bottom left;
+            overflow: hidden;
+        }
+        
+        .wheel-segment-inner {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            left: -100%;
+            top: -100%;
+            background: conic-gradient(from 0deg, var(--color) 0deg 45deg, transparent 45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .segment-text {
+            position: absolute;
+            top: 35%;
+            left: 55%;
+            transform: rotate(22.5deg);
+            font-size: 11px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            white-space: nowrap;
+            max-width: 80px;
+            text-align: center;
+        }
+        
+        .pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid #ffd700;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+            z-index: 10;
+        }
+        
+        .center-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(145deg, #ffd700, #ff8c00);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            z-index: 5;
+        }
+        
+        .spin-btn {
+            background: linear-gradient(145deg, #ffd700, #ff8c00);
+            border: none;
+            padding: 15px 50px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a1a2e;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        }
+        
+        .spin-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(255, 215, 0, 0.6);
+        }
+        
+        .spin-btn:disabled {
+            background: linear-gradient(145deg, #555, #333);
+            color: #888;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .result-text {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .result-prize {
+            font-size: 24px;
+            color: #ffd700;
+            margin-top: 5px;
+        }
+        
+        .cooldown {
+            color: #ff6b6b;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+            animation: confetti-fall 3s linear forwards;
+        }
+        
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        
+        .loading {
+            display: none;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎰 Колесо Фортуны</h1>
+        <p class="subtitle">Испытай удачу и получи приз!</p>
+        
+        <div class="wheel-container">
+            <div class="pointer"></div>
+            <div class="wheel" id="wheel"></div>
+            <div class="center-circle">🎯</div>
+        </div>
+        
+        <button class="spin-btn" id="spinBtn" onclick="spin()">🎲 КРУТИТЬ</button>
+        <p class="loading" id="loading">Загрузка...</p>
+        
+        <div class="result" id="result">
+            <div class="result-text" id="resultText"></div>
+            <div class="result-prize" id="resultPrize"></div>
+        </div>
+        
+        <p class="cooldown" id="cooldown"></p>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+        
+        const prizes = [
+            { name: "НИЧЕГО", color: "#e74c3c", emoji: "😢" },
+            { name: "5₽", color: "#2ecc71", emoji: "💵" },
+            { name: "НИЧЕГО", color: "#9b59b6", emoji: "😢" },
+            { name: "ПЕРЕКРУТ", color: "#3498db", emoji: "🔄" },
+            { name: "НИЧЕГО", color: "#e67e22", emoji: "😢" },
+            { name: "10₽", color: "#1abc9c", emoji: "💰" },
+            { name: "НИЧЕГО", color: "#e74c3c", emoji: "😢" },
+            { name: "3₽", color: "#f39c12", emoji: "🪙" }
+        ];
+        
+        let isSpinning = false;
+        let canSpin = true;
+        
+        function createWheel() {
+            const wheel = document.getElementById('wheel');
+            const segmentAngle = 360 / prizes.length;
+            
+            prizes.forEach((prize, i) => {
+                const segment = document.createElement('div');
+                segment.className = 'wheel-segment';
+                segment.style.transform = `rotate(${i * segmentAngle}deg)`;
+                segment.innerHTML = `
+                    <div class="wheel-segment-inner" style="--color: ${prize.color}">
+                    </div>
+                    <span class="segment-text">${prize.emoji} ${prize.name}</span>
+                `;
+                wheel.appendChild(segment);
+            });
+        }
+        
+        async function checkCooldown() {
+            try {
+                const response = await fetch(`/api/wheel/check?user_id=${tg.initDataUnsafe.user?.id}`);
+                const data = await response.json();
+                
+                if (!data.can_spin) {
+                    canSpin = false;
+                    document.getElementById('spinBtn').disabled = true;
+                    document.getElementById('cooldown').textContent = `⏰ Следующая попытка: ${data.next_spin}`;
+                }
+            } catch (e) {
+                console.log('Offline mode');
+            }
+        }
+        
+        async function spin() {
+            if (isSpinning || !canSpin) return;
+            
+            isSpinning = true;
+            const btn = document.getElementById('spinBtn');
+            const wheel = document.getElementById('wheel');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            result.classList.remove('show');
+            
+            try {
+                const response = await fetch('/api/wheel/spin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        user_id: tg.initDataUnsafe.user?.id,
+                        init_data: tg.initData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    document.getElementById('cooldown').textContent = data.message;
+                    btn.disabled = false;
+                    isSpinning = false;
+                    if (data.next_spin) {
+                        canSpin = false;
+                        document.getElementById('cooldown').textContent = `⏰ Следующая попытка: ${data.next_spin}`;
+                    }
+                    return;
+                }
+                
+                animateWheel(data.prize_index, data.prize, data.is_respin);
+                
+            } catch (e) {
+                // Офлайн режим для теста
+                const prizeIndex = getWeightedRandom();
+                animateWheel(prizeIndex, prizes[prizeIndex], false);
+            }
+        }
+        
+        function getWeightedRandom() {
+            const weights = [75, 3, 75, 5, 75, 2, 75, 5]; // Проценты
+            const total = weights.reduce((a, b) => a + b, 0);
+            let random = Math.random() * total;
+            
+            for (let i = 0; i < weights.length; i++) {
+                random -= weights[i];
+                if (random <= 0) return i;
+            }
+            return 0;
+        }
+        
+        function animateWheel(prizeIndex, prize, isRespin) {
+            const wheel = document.getElementById('wheel');
+            const segmentAngle = 360 / prizes.length;
+            const targetAngle = 360 - (prizeIndex * segmentAngle) - (segmentAngle / 2);
+            const spins = 5 + Math.random() * 3;
+            const finalRotation = spins * 360 + targetAngle;
+            
+            wheel.style.transform = `rotate(${finalRotation}deg)`;
+            
+            setTimeout(() => {
+                showResult(prize, isRespin);
+                isSpinning = false;
+                
+                if (prize.name === "ПЕРЕКРУТ") {
+                    canSpin = true;
+                    document.getElementById('spinBtn').disabled = false;
+                } else {
+                    canSpin = false;
+                    document.getElementById('spinBtn').disabled = true;
+                }
+            }, 4500);
+        }
+        
+        function showResult(prize, isRespin) {
+            const result = document.getElementById('result');
+            const resultText = document.getElementById('resultText');
+            const resultPrize = document.getElementById('resultPrize');
+            
+            if (prize.name === "НИЧЕГО") {
+                resultText.textContent = "😢 Не повезло!";
+                resultPrize.textContent = "Попробуй через 2 дня";
+                resultPrize.style.color = "#ff6b6b";
+            } else if (prize.name === "ПЕРЕКРУТ") {
+                resultText.textContent = "🔄 Перекрут!";
+                resultPrize.textContent = "Крути ещё раз!";
+                resultPrize.style.color = "#3498db";
+                createConfetti();
+            } else {
+                resultText.textContent = "🎉 Поздравляем!";
+                resultPrize.textContent = `Вы выиграли ${prize.name}!`;
+                resultPrize.style.color = "#ffd700";
+                createConfetti();
+            }
+            
+            result.classList.add('show');
+            
+            // Вибрация
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.impactOccurred('heavy');
+            }
+        }
+        
+        function createConfetti() {
+            const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#a55eea', '#26de81'];
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
+                    document.body.appendChild(confetti);
+                    setTimeout(() => confetti.remove(), 4000);
+                }, i * 30);
+            }
+        }
+        
+        createWheel();
+        checkCooldown();
+    </script>
+</body>
+</html>
